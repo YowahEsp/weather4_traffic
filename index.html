@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<title>Pronóstico del Tiempo en tu Ruta</title>
+
+<!-- Leaflet -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<!-- Leaflet Routing Machine -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.css"/>
+<script src="https://unpkg.com/leaflet-routing-machine@3.2.12/dist/leaflet-routing-machine.js"></script>
+
+<!-- jQuery -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+
+<!-- ========== ESTILOS OPTIMIZADOS PARA MÓVIL ========== -->
+<style>
+:root{
+  --bg:#0b1220; --panel:#121a2b; --muted:#8590a3; --text:#e9eef7;
+  --accent:#6ae3ff; --accent2:#7af0c1; --line:#2a3550; --chip:#1b2440;
+  --good:#2dd4bf; --warn:#fbbf24;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
+body{
+  margin:0;
+  background:linear-gradient(180deg,#0a1020 0%, #0c1430 100%);
+  color:var(--text);
+  font-family:ui-sans-serif,system-ui,'Segoe UI',Roboto,Inter,Arial;
+  min-height:100vh;
+  overflow-x: hidden;
+}
+header{
+  padding:14px 16px;
+  border-bottom:1px solid #152040;
+  position:sticky;
+  top:0;
+  z-index:5;
+  background:rgba(10,16,32,.95);
+  backdrop-filter:blur(6px);
+  display:flex;
+  gap:12px;
+  align-items:center;
+  justify-content:space-between;
+}
+header h1{
+  font-size:18px;
+  margin:0;
+  font-weight:700;
+  letter-spacing:.3px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.container{
+  display:flex;
+  flex-direction:column;
+  gap:16px;
+  padding:12px;
+}
+.card{
+  background:linear-gradient(180deg,#0f1830 0%,#0d1630 100%);
+  border:1px solid #162248;
+  border-radius:16px;
+  box-shadow:0 6px 24px rgba(2,8,35,.35);
+  overflow: hidden;
+}
+.panel{
+  padding:14px;
+}
+label{
+  display:block;
+  font-size:12px;
+  color:var(--muted);
+  margin-bottom:6px;
+  font-weight:600;
+}
+input[type="text"],input[type="datetime-local"],select{
+  width:100%;
+  padding:14px;
+  border-radius:12px;
+  border:1px solid #20305a;
+  background:#0c1430;
+  color:var(--text);
+  outline:none;
+  transition:border .2s;
+  font-size:16px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+input:focus, select:focus{
+  border-color:#3556ff;
+  box-shadow:0 0 0 3px rgba(53,86,255,.1);
+}
+.row{
+  display:grid;
+  grid-template-columns:1fr 1fr;
+  gap:12px;
+}
+.actions{
+  display:flex;
+  gap:10px;
+  margin-top:16px;
+}
+button{
+  border:0;
+  padding:14px 16px;
+  border-radius:12px;
+  font-weight:700;
+  cursor:pointer;
+  background:linear-gradient(135deg,var(--accent),var(--accent2));
+  color:#021022;
+  box-shadow:0 6px 18px rgba(70,200,255,.25);
+  transition:all .2s;
+  font-size:14px;
+  flex: 1;
+  min-height: 48px;
+}
+button:hover{
+  transform:translateY(-1px);
+  box-shadow:0 8px 24px rgba(70,200,255,.35);
+}
+button.secondary{
+  background:#162248;
+  color:var(--text);
+  border:1px solid #223064;
+  box-shadow:none;
+  flex: 0 0 auto;
+  width: auto;
+}
+button:disabled{
+  opacity:.6;
+  cursor:not-allowed;
+  transform:none;
+}
+.hint{
+  font-size:12px;
+  color:var(--muted);
+  margin-top:10px;
+  line-height:1.4;
+}
+.hint.small{
+  font-size:11px;
+}
+#map{
+  height:50vh;
+  min-height: 300px;
+  border-radius:16px;
+  position:relative;
+}
+.timeline{
+  padding:14px;
+}
+.timeline svg{
+  width:100%;
+  height:72px;
+}
+.chip{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding:8px 12px;
+  border-radius:999px;
+  background:var(--chip);
+  border:1px dashed #2b3a6b;
+  color:#cfe3ff;
+  font-size:12px;
+  margin:6px 6px 0 0;
+  font-weight:600;
+}
+.list{
+  padding:12px;
+  display:grid;
+  gap:10px;
+}
+.item{
+  background:#0a1328;
+  border:1px solid #182a5a;
+  border-radius:14px;
+  overflow:hidden;
+  transition:border-color .2s;
+}
+.item:hover{
+  border-color:#2a4073;
+}
+.item-head{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:12px;
+  padding:12px 14px;
+}
+.eta{
+  font-weight:700;
+  color:#d9f5ff;
+  font-size:15px;
+}
+.meta{
+  font-size:12px;
+  color:var(--muted);
+  margin-top:4px;
+}
+.widgetSlot{
+  background:#081024;
+  border-top:1px solid #16234a;
+  padding:12px;
+  min-height:240px;
+}
+.loading{
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:8px;
+  color:var(--muted);
+  font-size:14px;
+  padding:20px;
+  flex-direction: column;
+  text-align: center;
+}
+.spinner{
+  width:24px;
+  height:24px;
+  border:3px solid #2a3550;
+  border-top:3px solid var(--accent);
+  border-radius:50%;
+  animation:spin 1s linear infinite;
+  margin-bottom: 10px;
+}
+@keyframes spin{
+  0%{transform:rotate(0deg)}
+  100%{transform:rotate(360deg)}
+}
+.error-message{
+  background:#2d1b1b;
+  border:1px solid #5a2d2d;
+  border-radius:8px;
+  color:#ff9999;
+  padding:12px;
+  margin:8px 0;
+  font-size:13px;
+}
+.grid{
+  display:grid;
+  gap:14px;
+}
+.two-col{
+  display:flex;
+  flex-direction: column;
+  gap:16px;
+  margin-top:16px;
+}
+.footer-note{
+  padding:12px 14px;
+  font-size:12px;
+  color:#9bb0d1;
+  line-height:1.4;
+  text-align: center;
+}
+.nom-dropdown {
+  position: absolute;
+  background: #0c1430;
+  border: 1px solid #223064;
+  border-radius: 10px;
+  padding: 6px;
+  max-height: 200px;
+  overflow: auto;
+  z-index: 1000;
+  width: calc(100% - 2px);
+  box-sizing: border-box;
+  top: 100%;
+  margin-top: 4px;
+}
+.nom-dropdown li {
+  padding: 12px;
+  cursor: pointer;
+  border-radius: 6px;
+  list-style: none;
+  font-size: 14px;
+}
+.nom-dropdown li:hover {
+  background: #132351;
+}
+.autocomplete-container {
+  position: relative;
+}
+@media (min-width: 768px) {
+  .container {
+    display: grid;
+    grid-template-columns: 1fr 1.5fr;
+    gap: 16px;
+    padding: 16px;
+  }
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  #map {
+    height: 520px;
+  }
+}
+@media (max-width: 480px) {
+  header {
+    padding: 12px;
+  }
+  header h1 {
+    font-size: 16px;
+  }
+  .panel {
+    padding: 12px;
+  }
+  input[type="text"], input[type="datetime-local"], select {
+    padding: 12px;
+  }
+  button {
+    padding: 12px 14px;
+  }
+  .row {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  .actions {
+    flex-direction: column;
+  }
+  button.secondary {
+    width: 100%;
+  }
+}
+.touch-button {
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.leaflet-bar a, .leaflet-bar a:hover {
+  width: 34px;
+  height: 34px;
+  line-height: 34px;
+  font-size: 18px;
+}
+.leaflet-touch .leaflet-bar a {
+  width: 34px;
+  height: 34px;
+  line-height: 34px;
+}
+.leaflet-popup-content {
+  margin: 12px;
+  font-size: 14px;
+  line-height: 1.4;
+}
+.leaflet-popup-content button {
+  margin-top: 8px;
+  width: 100%;
+}
+.leaflet-marker-icon {
+  filter: drop-shadow(0px 2px 4px rgba(0, 0, 0, 0.4));
+}
+</style>
+</head>
+
+<body>
+  <header class="card">
+    <h1>🌤️ Pronóstico del Tiempo en tu Ruta</h1>
+  </header>
+
+  <div class="container">
+    <!-- Panel izquierdo -->
+    <section class="card panel">
+      <div id="routeForm">
+        <div class="grid">
+          <div class="autocomplete-container">
+            <label for="startLocation">📍 Lugar de salida</label>
+            <input id="startLocation" type="text" placeholder="ej: Madrid, España"/>
+          </div>
+          <div class="autocomplete-container">
+            <label for="endLocation">🎯 Destino</label>
+            <input id="endLocation" type="text" placeholder="ej: Barcelona, España"/>
+          </div>
+          <div class="row">
+            <div>
+              <label for="departureTime">🕘 Fecha y hora de salida</label>
+              <input id="departureTime" type="datetime-local"/>
+            </div>
+            <div>
+              <label for="spacing">📏 Espaciado de puntos</label>
+              <select id="spacing">
+                <option value="30">~ cada 30 km</option>
+                <option value="50" selected>~ cada 50 km</option>
+                <option value="75">~ cada 75 km</option>
+                <option value="100">~ cada 100 km</option>
+              </select>
+            </div>
+          </div>
+          <div class="actions">
+            <button id="planRouteBtn" class="touch-button">🗺️ Planificar Ruta y Tiempo</button>
+            <button class="secondary touch-button" id="swapBtn" title="Intercambiar origen y destino">🔄</button>
+          </div>
+          <p class="hint">💡 Comienza a escribir y selecciona de la lista. Los datos climáticos provienen <strong>exclusivamente</strong> de Open-Meteo.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contenido principal -->
+    <section>
+      <div id="map" class="card"></div>
+
+      <div class="two-col">
+        <div class="card">
+          <div class="panel"><div class="chip">📍 Puntos de Control y Clima</div></div>
+          <div id="checkpointsList" class="list"></div>
+          <div class="footer-note">Haz clic en «🌤️ Ver clima» para cada punto.</div>
+        </div>
+
+        <div class="card">
+          <div class="panel"><div class="chip">🌤️ Panel de Clima Enfocado</div></div>
+          <div id="focusedWeather" class="widgetSlot">
+            <div class="loading"><div class="spinner"></div><span>Selecciona un punto para ver su clima</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+<!-- ========== JAVASCRIPT OPTIMIZADO PARA MÓVIL ========== -->
+<script>
+/* ========== VARIABLES GLOBALES ========== */
+let map, currentRoute, checkpointsData = [], markersGroup;
+
+/* ========== HTTPS HELPER ========== */
+function secure(url){
+  return url.replace(/^http:\/\//, 'https://');
+}
+
+/* ========== SAFE FETCH ========== */
+async function safeFetch(url, opts = {}){
+  try{
+    const r = await fetch(secure(url), {mode:'cors', ...opts});
+    if(!r.ok) throw new Error(`HTTP ${r.status}`);
+    return r;
+  }catch(err){
+    throw new Error('No se pudo contactar con el servidor. Comprueba tu conexión y que uses https.');
+  }
+}
+
+/* ========== INICIALIZAR MAPA ========== */
+function initMap(){
+  const isMobile = window.innerWidth <= 768;
+  map = L.map('map').setView([40.4168,-3.7038], isMobile ? 5 : 6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'© OpenStreetMap contributors'
+  }).addTo(map);
+  markersGroup = L.featureGroup().addTo(map);
+}
+
+/* ========== FECHA/HORA POR DEFECTO ========== */
+function setDefaultDepartureTime(){
+  const d = new Date(Date.now() + 30*60000);
+  document.getElementById('departureTime').value = new Date(d - d.getTimezoneOffset()*60000)
+    .toISOString().slice(0,16);
+}
+
+/* ========== AUTOCOMPLETE NOMINATIM ========== */
+function setupAutocomplete(inputId){
+  const input = document.getElementById(inputId);
+  let timeout;
+  input.addEventListener('input', () => {
+    clearTimeout(timeout);
+    const q = input.value.trim();
+    if(q.length < 2){
+      const existingDropdown = input.parentNode.querySelector('.nom-dropdown');
+      if (existingDropdown) existingDropdown.remove();
+      return;
+    }
+    timeout = setTimeout(async () => {
+      try{
+        const res = await safeFetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q)}&limit=5&addressdetails=1`
+        );
+        const data = await res.json();
+        [...document.querySelectorAll('.nom-dropdown')].forEach(el => el.remove());
+        if(!data.length) return;
+        const ul = document.createElement('ul');
+        ul.className = 'nom-dropdown';
+        data.forEach(r => {
+          const li = document.createElement('li');
+          li.textContent = r.display_name;
+          li.onclick = () => {
+            input.value = r.display_name;
+            input.dataset.lat = r.lat;
+            input.dataset.lon = r.lon;
+            ul.remove();
+          };
+          ul.appendChild(li);
+        });
+        input.parentNode.appendChild(ul);
+      }catch(err){
+        console.error(err);
+      }
+    }, 400);
+  });
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.nom-dropdown') && !e.target.matches('#' + inputId)) {
+      [...document.querySelectorAll('.nom-dropdown')].forEach(el => el.remove());
+    }
+  });
+}
+
+/* ========== PLANIFICAR RUTA ========== */
+async function planRoute(){
+  const startInput = document.getElementById('startLocation');
+  const endInput   = document.getElementById('endLocation');
+  const departureInput = document.getElementById('departureTime');
+  const spacingInput = document.getElementById('spacing');
+
+  const startLat = parseFloat(startInput.dataset.lat);
+  const startLon = parseFloat(startInput.dataset.lon);
+  const endLat   = parseFloat(endInput.dataset.lat);
+  const endLon   = parseFloat(endInput.dataset.lon);
+
+  if(!Number.isFinite(startLat)||!Number.isFinite(startLon)||!Number.isFinite(endLat)||!Number.isFinite(endLon)){
+    return showError('Selecciona ubicaciones válidas de la lista.');
+  }
+  if(!departureInput.value) return showError('Selecciona fecha y hora de salida.');
+
+  const btn = document.getElementById('planRouteBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<div class="spinner" style="display:inline-block; width:16px; height:16px; margin-right:8px;"></div> Planificando...';
+
+  try{
+    const routeUrl = `https://router.project-osrm.org/route/v1/driving/${startLon},${startLat};${endLon},${endLat}?overview=full&geometries=polyline6`;
+    const routeRes = await safeFetch(routeUrl);
+    const routeData = await routeRes.json();
+    if(routeData.code!=='Ok') throw new Error('No se pudo encontrar ruta');
+    const route = routeData.routes[0];
+    const coords = polyline.decode(route.geometry,6).map(c=>({lat:c[0],lon:c[1]}));
+
+    const spacing = parseInt(spacingInput.value)*1000;
+    const departureTime = new Date(departureInput.value);
+    const checkpoints = buildCheckpoints(coords,route.distance,route.duration,spacing,departureTime);
+    checkpoints[0].name = startInput.value;
+    checkpoints[checkpoints.length-1].name = endInput.value;
+
+    checkpointsData = checkpoints;
+    currentRoute = {coords,distance:route.distance,duration:route.duration};
+
+    drawRoute(checkpoints);
+    await renderCheckpointsList(checkpoints);
+    showSuccess(`Ruta: ${(route.distance/1000).toFixed(1)} km, ${(route.duration/3600).toFixed(1)} h`);
+    if (window.innerWidth <= 768) {
+      document.getElementById('map').scrollIntoView({behavior: 'smooth'});
+    }
+  }catch(e){
+    showError('Error: '+e.message);
+  }
+  btn.disabled = false;
+  btn.innerHTML = '🗺️ Planificar Ruta y Tiempo';
+}
+
+/* ========== POLYLINE DECODER (librería mínima) ========== */
+const polyline = {
+  decode:function(str,precision){
+    precision = precision||5;
+    const factor = Math.pow(10,precision);
+    let index=0,len=str.length;
+    let lat=0,lng=0;
+    const coordinates=[];
+    while(index<len){
+      let b,shift=0,result=0;
+      do{b=str.charCodeAt(index++)-63;result|=(b&0x1f)<<shift;shift+=5;}while(b>=0x20);
+      const deltaLat = ((result&1)?~(result>>1):(result>>1));
+      lat+=deltaLat;
+      shift=result=0;
+      do{b=str.charCodeAt(index++)-63;result|=(b&0x1f)<<shift;shift+=5;}while(b>=0x20);
+      const deltaLng = ((result&1)?~(result>>1):(result>>1));
+      lng+=deltaLng;
+      coordinates.push([lat/factor,lng/factor]);
+    }
+    return coordinates;
+  }
+};
+
+/* ========== CALCULAR CHECKPOINTS ========== */
+function buildCheckpoints(coords,totalDistance,totalDuration,spacing,departureTime){
+  const checkpoints=[];
+  let distAcc=0;
+  const distances=[0];
+  for(let i=1;i<coords.length;i++){
+    distAcc += haversine(coords[i-1],coords[i]);
+    distances.push(distAcc);
+  }
+  checkpoints.push({...coords[0],distance:0,time:departureTime,index:0});
+  let target=spacing;
+  while(target < totalDistance){
+    let idx = distances.findIndex(d=>d>=target);
+    if(idx===-1) idx=distances.length-1;
+    const ratio = target/totalDistance;
+    checkpoints.push({
+      ...coords[idx],
+      distance:target,
+      time:new Date(departureTime.getTime()+ratio*totalDuration*1000),
+      index:checkpoints.length
+    });
+    target += spacing;
+  }
+  const last = checkpoints[checkpoints.length-1];
+  if(Math.abs(last.distance-totalDistance)>spacing/2){
+    checkpoints.push({
+      ...coords[coords.length-1],
+      distance:totalDistance,
+      time:new Date(departureTime.getTime()+totalDuration*1000),
+      index:checkpoints.length
+    });
+  }
+  return checkpoints;
+}
+
+function haversine(a,b){
+  const R=6371000, toRad=Math.PI/180;
+  const dLat=(b.lat-a.lat)*toRad, dLon=(b.lon-a.lon)*toRad;
+  const sa=Math.sin(dLat/2), sb=Math.sin(dLon/2);
+  const aa=sa*sa+Math.cos(a.lat*toRad)*Math.cos(b.lat*toRad)*sb*sb;
+  return 2*R*Math.asin(Math.sqrt(aa));
+}
+
+/* ========== DIBUJAR EN MAPA ========== */
+function drawRoute(checkpoints){
+  markersGroup.clearLayers();
+  const latLngs = checkpoints.map(c=>[c.lat,c.lon]);
+  const routeLine = L.polyline(latLngs,{color:'#6ae3ff',weight:5,opacity:.9});
+  markersGroup.addLayer(routeLine);
+
+  checkpoints.forEach((cp,i)=>{
+    const icon = L.divIcon({
+      html:`<div style="background:linear-gradient(135deg,#6ae3ff,#7af0c1);color:#021022;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;border:3px solid #0f1830">${i===0?'🚀':i===checkpoints.length-1?'🏁':i+1}</div>`,
+      className:'',
+      iconSize:[32,32],
+      iconAnchor:[16,16]
+    });
+    const marker = L.marker([cp.lat,cp.lon],{icon})
+     .bindPopup(`
+       <strong>${cp.name||`Punto ${i+1}`}</strong><br>
+       ${(cp.distance/1000).toFixed(1)} km<br>
+       ${formatTimeLocal(cp.time,cp.lat,cp.lon)}<br>
+       <button class="touch-button" onclick="showWeatherForCheckpoint(${i})" style="margin-top:8px;padding:8px 12px;font-size:13px;">🌤️ Ver Clima</button>
+     `);
+    markersGroup.addLayer(marker);
+  });
+  const padding = window.innerWidth <= 768 ? [40, 40] : [20, 20];
+  map.fitBounds(markersGroup.getBounds(),{padding});
+}
+
+/* ========== RENDER LISTA DE CHECKPOINTS ========== */
+async function renderCheckpointsList(checkpoints){
+  const list = document.getElementById('checkpointsList');
+  list.innerHTML='';
+  for(const [i,cp] of checkpoints.entries()){
+    cp.placeName = await reverseName(cp.lat,cp.lon);
+    const item = document.createElement('div');
+    item.className='item';
+    item.innerHTML=`
+      <div class="item-head">
+        <div style="flex: 1; min-width: 0;">
+          <div class="eta">${i===0?'🚀 Salida':i===checkpoints.length-1?'🏁 Llegada':`📍 Punto ${i+1}`}</div>
+          <div class="meta">${(cp.distance/1000).toFixed(1)} km • ${formatTimeLocal(cp.time,cp.lat,cp.lon)}</div>
+          <div style="font-size:11px;color:#9bb0d1;white-space: nowrap;overflow: hidden;text-overflow: ellipsis;">${cp.placeName}</div>
+        </div>
+        <button class="inline-btn touch-button" onclick="showWeatherForCheckpoint(${i})" style="padding: 10px 12px; font-size: 13px;">🌤️ Clima</button>
+      </div>
+      <div id="weather-${i}" style="display:none;"></div>`;
+    list.appendChild(item);
+  }
+}
+
+/* ========== CLIMA OPEN-METEO ========== */
+window.showWeatherForCheckpoint = async function(i){
+  const cp = checkpointsData[i];
+  const panel = document.getElementById('focusedWeather');
+  panel.innerHTML = '<div class="loading"><div class="spinner"></div>Cargando clima real de Open-Meteo…</div>';
+
+  try{
+    const weather = await fetchOpenMeteo(cp.lat,cp.lon,cp.time);
+    panel.innerHTML = renderWeatherWidget(weather,cp);
+    const inline = document.getElementById(`weather-${i}`);
+    if(inline){ 
+      inline.innerHTML = renderInlineWeather(weather); 
+      inline.style.display='block'; 
+      if (window.innerWidth <= 768) {
+        inline.scrollIntoView({behavior: 'smooth', block: 'nearest'});
+      }
+    }
+  }catch(e){
+    panel.innerHTML = `<div class="error-message">⚠️ ${e.message}<br><button class="inline-btn touch-button" onclick="showWeatherForCheckpoint(${i})" style="margin-top:8px;">Reintentar</button></div>`;
+  }
+};
+
+async function fetchOpenMeteo(lat,lon,targetTime){
+  const startDate = new Date(targetTime);
+  const endDate = new Date(startDate.getTime() + 2*24*3600*1000);
+  const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&hourly=temperature_2m,relative_humidity_2m,precipitation_probability,precipitation,pressure_msl,wind_speed_10m,wind_direction_10m,visibility,weather_code&start_date=${toYMD(startDate)}&end_date=${toYMD(endDate)}&timezone=auto`;
+  const res = await safeFetch(url);
+  const data = await res.json();
+  if(!data.hourly?.time?.length) throw new Error('Sin datos horarios');
+  const idx = closestIndex(data.hourly.time,targetTime);
+  const h = data.hourly;
+  if(typeof h.precipitation_probability[idx]!=='number') throw new Error('Probabilidad de lluvia no disponible');
+  return {
+    time:h.time[idx],
+    temperature:h.temperature_2m[idx],
+    humidity:h.relative_humidity_2m[idx],
+    precipitationProbability:h.precipitation_probability[idx],
+    precipitation:h.precipitation[idx] ?? null,
+    pressure:h.pressure_msl[idx],
+    windSpeed:h.wind_speed_10m[idx],
+    windDirection:h.wind_direction_10m[idx],
+    visibility:h.visibility[idx]/1000,
+    weatherCode:h.weather_code[idx],
+    description:weatherDesc(h.weather_code[idx]),
+    icon:weatherIcon(h.weather_code[idx])
+  };
+}
+
+function toYMD(d){
+  return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10);
+}
+function closestIndex(arr,target){
+  const t = new Date(target).getTime();
+  return arr.reduce((best,i,idx)=>Math.abs(new Date(i).getTime()-t)<Math.abs(new Date(arr[best]).getTime()-t)?idx:best,0);
+}
+function formatTimeLocal(date,lat,lon){
+  return new Date(date).toLocaleString('es-ES',{
+    weekday:'short',day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'
+  });
+}
+
+/* ========== RENDER WIDGET CLIMA ========== */
+function renderWeatherWidget(w,cp){
+  const rainColor = w.precipitationProbability>=50 ? '#fbbf24' : '#6ae3ff';
+  return `
+    <div style="padding:16px;background:#0a1328;border-radius:12px;border:1px solid #1a2a4a">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+        <span style="font-size:46px">${w.icon}</span>
+        <div>
+          <strong style="color:#6ae3ff;font-size:18px">${w.description}</strong>
+          <div style="font-size:13px;color:#8590a3">${formatTimeLocal(cp.time,cp.lat,cp.lon)}</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px">
+        <div style="background:#162248;border-radius:8px;padding:12px;text-align:center">
+          <div style="color:#8590a3;font-size:12px">Temperatura</div>
+          <div style="color:#6ae3ff;font-size:24px;font-weight:700">${w.temperature}°C</div>
+        </div>
+        <div style="background:#162248;border-radius:8px;padding:12px;text-align:center">
+          <div style="color:#8590a3;font-size:12px">Lluvia</div>
+          <div style="color:${rainColor};font-size:24px;font-weight:700">${w.precipitationProbability}%</div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:12px">
+        <div style="background:#0f1830;padding:8px;border-radius:6px;text-align:center"><div style="color:#8590a3">Viento</div><div style="color:#6ae3ff;font-weight:600">${w.windSpeed} km/h</div></div>
+        <div style="background:#0f1830;padding:8px;border-radius:6px;text-align:center"><div style="color:#8590a3">Humedad</div><div style="color:#6ae3ff;font-weight:600">${w.humidity}%</div></div>
+        <div style="background:#0f1830;padding:8px;border-radius:6px;text-align:center"><div style="color:#8590a3">Presión</div><div style="color:#6ae3ff;font-weight:600">${w.pressure} hPa</div></div>
+      </div>
+      <div style="margin-top:12px;font-size:12px;color:#9bb0d1;text-align:center;white-space: nowrap;overflow: hidden;text-overflow: ellipsis;">📍 ${cp.placeName}</div>
+    </div>`;
+}
+function renderInlineWeather(w){
+  return `
+    <div style="padding:12px;background:#0a1328;border-top:1px solid #182a5a;display:flex;align-items:center;justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:10px">
+        <span style="font-size:32px">${w.icon}</span>
+        <div>
+          <div style="color:#6ae3ff;font-weight:600">${w.description}</div>
+          <div style="color:#fbbf24;font-size:15px;font-weight:700">Lluvia: ${w.precipitationProbability}%</div>
+        </div>
+      </div>
+      <div style="text-align:right"><div style="color:#6ae3ff;font-size:20px;font-weight:700">${w.temperature}°C</div></div>
+    </div>`;
+}
+function weatherDesc(code){
+  const map = {
+    0:'Despejado',1:'Mayormente despejado',2:'Parcialmente nublado',3:'Nublado',
+    45:'Niebla',48:'Niebla con escarcha',51:'Llovizna ligera',53:'Llovizna moderada',55:'Llovizna intensa',
+    61:'Lluvia ligera',63:'Lluvia moderada',65:'Lluvia intensa',71:'Nieve ligera',73:'Nieve moderada',75:'Nieve intensa',
+    95:'Tormenta',96:'Tormenta con granizo'
+  };
+  return map[code] || 'Condición desconocida';
+}
+function weatherIcon(code){
+  const map = {0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',51:'🌦️',61:'🌧️',71:'🌨️',95:'⛈️'};
+  return map[code] || '🌤️';
+}
+
+async function reverseName(lat,lon){
+  try{
+    const res = await safeFetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=14&addressdetails=1`);
+    const data = await res.json();
+    return data.display_name.split(',').slice(0,3).join(',');
+  }catch(e){ return 'Lugar desconocido'; }
+}
+
+/* ========== INTERCAMBIAR ORIGEN/DESTINO ========== */
+function swapLocations(){
+  const startInput = document.getElementById('startLocation');
+  const endInput = document.getElementById('endLocation');
+  const temp = {value:startInput.value, lat:startInput.dataset.lat, lon:startInput.dataset.lon};
+  startInput.value = endInput.value;
+  startInput.dataset.lat = endInput.dataset.lat;
+  startInput.dataset.lon = endInput.dataset.lon;
+  endInput.value = temp.value;
+  endInput.dataset.lat = temp.lat;
+  endInput.dataset.lon = temp.lon;
+}
+
+/* ========== MENSAJES ========== */
+function showError(msg){
+  const el = document.createElement('div');
+  el.className = 'error-message';
+  el.innerHTML = `⚠️ ${msg}`;
+  document.querySelector('.container').prepend(el);
+  setTimeout(()=>el.remove(),5000);
+}
+function showSuccess(msg){
+  const el = document.createElement('div');
+  el.style = 'background:#1b2d1b;border:1px solid #2d5a2d;border-radius:8px;color:#99ff99;padding:12px;margin:8px 0;font-size:13px';
+  el.innerHTML = `✅ ${msg}`;
+  document.querySelector('.container').prepend(el);
+  setTimeout(()=>el.remove(),5000);
+}
+
+/* ========== INICIALIZAR ========== */
+document.addEventListener('DOMContentLoaded',()=>{
+  initMap();
+  setDefaultDepartureTime();
+  setupAutocomplete('startLocation');
+  setupAutocomplete('endLocation');
+  document.getElementById('planRouteBtn').addEventListener('click',planRoute);
+  document.getElementById('swapBtn').addEventListener('click',swapLocations);
+});
+</script>
+</body>
+</html>
