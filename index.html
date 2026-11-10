@@ -153,6 +153,8 @@ button{font-family:var(--sans);cursor:pointer;border:0;}
 .leaflet-control-zoom a{background:var(--surface)!important;color:var(--text)!important;border-color:var(--line)!important;}
 .leaflet-control-attribution{background:rgba(10,16,24,.75)!important;color:var(--faint)!important;}
 .leaflet-control-attribution a{color:var(--muted)!important;}
+/* Mapa OSM en modo oscuro: invierte las teselas y devuelve los tonos a su sitio */
+.capa-osm-oscura{filter:invert(1) hue-rotate(180deg) brightness(.92) contrast(.9) saturate(.55);}
 .pin{width:30px;height:30px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
   display:grid;place-items:center;border:2px solid #0c1322;box-shadow:0 4px 8px rgba(0,0,0,.5);}
 .pin span{transform:rotate(45deg);font-size:13px;font-weight:800;color:#0c1322;font-family:var(--mono);}
@@ -497,9 +499,12 @@ const escapeHTML = s => (s||'').replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','
    ===================================================================== */
 function initMap(){
   state.map = L.map('map',{zoomControl:true}).setView([40.05,-3.6], 6);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{
-    subdomains:'abcd', maxZoom:19,
-    attribution:'© OpenStreetMap · © CARTO'
+  /* Teselas estándar de OpenStreetMap (sin clave). CARTO exige clave desde el 25-09-2026.
+     El aspecto oscuro se consigue con un filtro CSS (.capa-osm-oscura). */
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    maxZoom:19,
+    className:'capa-osm-oscura',
+    attribution:'© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">colaboradores de OpenStreetMap</a>'
   }).addTo(state.map);
   state.layer = L.layerGroup().addTo(state.map);
 }
